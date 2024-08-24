@@ -3,6 +3,47 @@ import tkinter
 from tkinter import ttk, StringVar, filedialog
 import os
 
+import yt_dlp
+
+
+
+def download_youtube_video(url):
+    URLS = [url]
+    def format_selector(ctx):
+        """ Select the best video and the best audio that won't result in an mkv.
+        NOTE: This is just an example and does not handle all cases """
+
+        # formats are already sorted worst to best
+        formats = ctx.get('formats')[::-1]
+
+        # acodec='none' means there is no audio
+        best_video = next(f for f in formats
+            if f['vcodec'] != 'none' and f['acodec'] == 'none')
+
+        # find compatible audio extension
+        audio_ext = {'mp4': 'm4a', 'webm': 'webm'}[best_video['ext']]
+        # vcodec='none' means there is no video
+        best_audio = next(f for f in formats if (
+            f['acodec'] != 'none' and f['vcodec'] == 'none' and f['ext'] == audio_ext))
+
+        # These are the minimum required fields for a merged format
+        yield {
+            'format_id': f'{best_video["format_id"]}+{best_audio["format_id"]}',
+            'ext': best_video['ext'],
+            'requested_formats': [best_video, best_audio],
+            # Must be + separated list of protocols
+            'protocol': f'{best_video["protocol"]}+{best_audio["protocol"]}'
+        }
+
+
+    ydl_opts = {
+        'format': format_selector,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download(URLS)
+
+
 class DesktopApp(tkinter.Frame):
     def __init__(self, window=None):
         super().__init__(window, width=380, height=290,borderwidth=1, relief="groove")
@@ -17,7 +58,8 @@ class DesktopApp(tkinter.Frame):
         url_frame = ttk.Frame(self, padding=10)
         url_label = ttk.Label(url_frame, text="URL")
         textVariable = StringVar()
-        entry = ttk.Entry(url_frame, textvariable=textVariable)
+        self.youtube_url = StringVar()
+        entry = ttk.Entry(url_frame, textvariable=self.youtube_url)
         url_frame.pack()
         url_label.pack(side="left")
         entry.pack(side="left")
@@ -45,10 +87,12 @@ class DesktopApp(tkinter.Frame):
     def save(self):
         print("save")
         path: str = self.workspace_path.get()
+        url_link: str = self.youtube_url.get()
         # パスが存在するか確認する(ディレクトリ)
         if os.path.isdir(path):
             print("path is dir")
             print(path)
+            download_youtube_video(url_link)
             
         
 
